@@ -1,65 +1,143 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'shared_prefs_helper.dart'; // Or wherever you store your Sanctum auth token
+import '../models/delivery_model.dart'; 
 
 class ApiService {
-  // Update with your PC's local IP address if running on a physical device
+  // Use 'http://10.0.2.2:8000/api' for Android Emulator or 'http://127.0.0.1:8000/api' for Chrome/Web
   static const String baseUrl = 'http://127.0.0.1:8000/api';
+  static const Duration _timeout = Duration(seconds: 15);
 
-  static Future<Map<String, dynamic>> createDelivery({
+  static Map<String, String> get _headers => {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json', // Forces Laravel to return JSON instead of HTML error pages
+      };
+
+  static Future<dynamic> createDelivery({
     required String pickup,
     required String dropoff,
     required String cargoType,
   }) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/deliveries'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'pickup_location': pickup,
-        'dropoff_location': dropoff,
-        'cargo_type': cargoType,
-      }),
-    );
+    final url = Uri.parse('$baseUrl/deliveries');
+    debugPrint('POST Request -> $url');
 
-    if (response.statusCode == 201 || response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to create delivery: ${response.body}');
+    try {
+      final response = await http.post(
+        url,
+        headers: _headers,
+        body: jsonEncode({
+          'pickup_location': pickup,
+          'dropoff_location': dropoff,
+          'cargo_type': cargoType,
+        }),
+      ).timeout(_timeout);
+
+      debugPrint('Response Status: ${response.statusCode}');
+      debugPrint('Response Body: ${response.body}');
+
+      return _processResponse(response);
+    } on SocketException {
+      throw Exception('No internet connection. Please check your network.');
+    } on http.ClientException {
+      throw Exception('Network connection failed. Server might be offline.');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('An unexpected error occurred: $e');
     }
   }
 
-  static Future<List<dynamic>> getDeliveries() async {
-    final response = await http.get(Uri.parse('$baseUrl/deliveries'));
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to load deliveries');
+  static Future<dynamic> getDeliveries() async {
+    final url = Uri.parse('$baseUrl/deliveries');
+    debugPrint('GET Request -> $url');
+
+    try {
+      final response = await http.get(
+        url,
+        headers: _headers,
+      ).timeout(_timeout);
+
+      debugPrint('Response Status: ${response.statusCode}');
+      return _processResponse(response);
+    } on SocketException {
+      throw Exception('No internet connection. Please check your network.');
+    } on http.ClientException {
+      throw Exception('Network connection failed. Server might be offline.');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('An unexpected error occurred: $e');
     }
   }
 
-  static Future<Map<String, dynamic>> acceptDelivery(int deliveryId) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/deliveries/$deliveryId/accept'),
-      headers: {'Content-Type': 'application/json'},
-    );
+  static Future<dynamic> acceptDelivery(int deliveryId) async {
+    final url = Uri.parse('$baseUrl/deliveries/$deliveryId/accept');
+    debugPrint('POST Request -> $url');
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      throw Exception('Failed to accept delivery: ${response.body}');
+    try {
+      final response = await http.post(
+        url,
+        headers: _headers,
+      ).timeout(_timeout);
+
+      debugPrint('Response Status: ${response.statusCode}');
+      return _processResponse(response);
+    } on SocketException {
+      throw Exception('No internet connection. Please check your network.');
+    } on http.ClientException {
+      throw Exception('Network connection failed. Server might be offline.');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('An unexpected error occurred: $e');
     }
   }
 
-  static Future<Map<String, dynamic>> completeDelivery(int deliveryId) async {
-    final response = await http.post(
-      Uri.parse('$baseUrl/deliveries/$deliveryId/complete'),
-      headers: {'Content-Type': 'application/json'},
-    );
+  static Future<dynamic> completeDelivery(int deliveryId) async {
+    final url = Uri.parse('$baseUrl/deliveries/$deliveryId/complete');
+    debugPrint('POST Request -> $url');
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+    try {
+      final response = await http.post(
+        url,
+        headers: _headers,
+      ).timeout(_timeout);
+
+      debugPrint('Response Status: ${response.statusCode}');
+      return _processResponse(response);
+    } on SocketException {
+      throw Exception('No internet connection. Please check your network.');
+    } on http.ClientException {
+      throw Exception('Network connection failed. Server might be offline.');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('An unexpected error occurred: $e');
+    }
+  }
+
+  /// Helper method to safely parse server responses and extract Laravel error messages
+  static dynamic _processResponse(http.Response response) {
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      if (response.body.isEmpty) return {};
+      try {
+        return jsonDecode(response.body);
+      } catch (_) {
+        throw Exception('Invalid JSON response received from server.');
+      }
     } else {
-      throw Exception('Failed to complete delivery: ${response.body}');
+      String errorMessage = 'Server error (${response.statusCode})';
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map && decoded.containsKey('message')) {
+          errorMessage = decoded['message'];
+        } else if (decoded is Map && decoded.containsKey('error')) {
+          errorMessage = decoded['error'];
+        }
+      } catch (_) {
+        // Fallback if body is not JSON (e.g. Laravel HTML crash page)
+        errorMessage = response.body.isNotEmpty 
+            ? response.body.substring(0, response.body.length > 100 ? 100 : response.body.length) 
+            : 'Unknown error';
+      }
+      throw Exception(errorMessage);
     }
   }
 }

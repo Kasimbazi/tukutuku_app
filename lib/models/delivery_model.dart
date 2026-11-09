@@ -17,12 +17,14 @@ class Delivery {
 
   factory Delivery.fromJson(Map<String, dynamic> json) {
     return Delivery(
-      id: json['id'],
-      pickupLocation: json['pickup_location'],
-      dropoffLocation: json['dropoff_location'],
-      cargoType: json['cargo_type'],
-      fareUgx: double.parse(json['fare_ugx'].toString()),
-      status: json['status'],
+      // Safely parse ID even if backend sends it as a String or int
+      id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      pickupLocation: json['pickup_location']?.toString() ?? 'Unknown Pickup',
+      dropoffLocation: json['dropoff_location']?.toString() ?? 'Unknown Dropoff',
+      cargoType: json['cargo_type']?.toString() ?? 'Standard Tukutuku',
+      // Safely parse numbers regardless of whether they are int, double, or String
+      fareUgx: double.tryParse(json['fare_ugx']?.toString() ?? '0') ?? 0.0,
+      status: json['status']?.toString() ?? 'pending',
     );
   }
 }

@@ -15,18 +15,28 @@ class _CustomerHistoryScreenState extends State<CustomerHistoryScreen> {
   late Future<List<Delivery>> _futureHistory;
 
   @override
-  void initState() {
-    super.initState();
-    _loadHistory();
-  }
+    void initState() {
+      super.initState();
+      _loadHistory();
+    }
 
-  void _loadHistory() {
-    setState(() {
-      _futureHistory = ApiService.getDeliveries().then((data) {
-        return data.map((json) => Delivery.fromJson(json)).toList();
+    // 1. Create a dedicated async helper function
+    Future<List<Delivery>> _fetchHistory() async {
+      final response = await ApiService.getDeliveries();
+
+      // Handle wrapped responses like {"data": [...]} or raw List [...]
+      final List rawList = (response is Map && response.containsKey('data'))
+          ? response['data']
+          : (response is List ? response : []);
+
+      return rawList.map((json) => Delivery.fromJson(json as Map<String, dynamic>)).toList();
+    }
+
+    void _loadHistory() {
+      setState(() {
+        _futureHistory = _fetchHistory();
       });
-    });
-  }
+    }
 
   @override
   Widget build(BuildContext context) {

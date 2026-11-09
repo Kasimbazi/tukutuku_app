@@ -9,9 +9,11 @@ class OrderDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPending = delivery.status == 'pending';
-    final isAccepted = delivery.status == 'accepted';
-    final isCompleted = delivery.status == 'completed';
+    // Safe status handling with fallback
+    final status = delivery.status.toLowerCase();
+    final isPending = status == 'pending';
+    final isAccepted = status == 'accepted';
+    final isCompleted = status == 'completed';
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -119,7 +121,7 @@ class OrderDetailsSheet extends StatelessWidget {
           ),
           const SizedBox(height: 24),
 
-          // Action button
+          // Action button with safe error trapping on map launch
           if (!isCompleted)
             SizedBox(
               width: double.infinity,
@@ -132,9 +134,14 @@ class OrderDetailsSheet extends StatelessWidget {
                 ),
                 icon: const Icon(Icons.map),
                 label: const Text('Open Route in Google Maps', style: TextStyle(fontWeight: FontWeight.bold)),
-                onPressed: () {
-                  Navigator.pop(context);
-                  NavigationService.launchNavigation(destinationAddress: delivery.dropoffLocation);
+                onPressed: () async {
+                  try {
+                    Navigator.pop(context);
+                    await NavigationService.launchNavigation(destinationAddress: delivery.dropoffLocation);
+                  } catch (e) {
+                    debugPrint('Error launching navigation: $e');
+                    // Fallback handled safely without crashing UI
+                  }
                 },
               ),
             )

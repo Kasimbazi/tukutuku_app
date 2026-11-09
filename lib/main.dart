@@ -1,3 +1,5 @@
+import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 // import 'services/notification_service.dart'; // Uncomment once notification_service.dart is implemented
@@ -9,7 +11,88 @@ import 'screens/customer_history_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
+  // 1. Catch Flutter framework errors (build, layout, paint errors)
+  FlutterError.onError = (FlutterErrorDetails details) {
+    if (kDebugMode) {
+      FlutterError.presentError(details);
+    } else {
+      // TODO: Send to Firebase Crashlytics in production
+      debugPrint('Flutter Framework Error: ${details.exception}');
+    }
+  };
+
+  // 2. Catch asynchronous / unhandled background isolate errors
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('Uncaught async error: $error');
+    // TODO: Send async error & stack trace to your crash reporting tool
+    return true; // Mark error as handled
+  };
+
+  // 3. Custom Build Phase Error Widget (Replaces the default red screen/gray box)
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        primaryColor: const Color(0xFF00E676),
+      ),
+      home: Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  size: 64,
+                  color: Color(0xFF00E676),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Tukutuku UI Glitch Detected',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'We encountered an issue rendering this screen. Our dispatch team has been notified.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+                if (kDebugMode) ...[
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E1E),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      details.exception.toString(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontFamily: 'monospace',
+                        color: Colors.redAccent,
+                      ),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  };
+
   // try {
   //   if (Firebase.apps.isEmpty) {
   //     await Firebase.initializeApp();
@@ -110,7 +193,7 @@ class _BookingScreenState extends State<BookingScreen> {
         cargoType: _selectedCargoType,
       );
 
-      final deliveryData = Delivery.fromJson(response['delivery']);
+      final deliveryData = Delivery.fromJson(response['data']);
 
       if (!mounted) return;
 
@@ -202,7 +285,14 @@ class _BookingScreenState extends State<BookingScreen> {
               ),
               onPressed: _isLoading ? null : _submitOrder,
               child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.black)
+                  ? const SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.black,
+                        strokeWidth: 2.5,
+                      ),
+                    )
                   : const Text(
                       'Request Tukutuku',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
